@@ -21,12 +21,14 @@ Functions:
 import os
 import re
 import shlex
+import argparse
 import warnings
 import platform
 import subprocess
 
 import pandas as pd
 
+from pathlib import Path
 from rich import print, inspect
 
 
@@ -169,11 +171,21 @@ def generate_xorg_conf(devices: pd.DataFrame, n_screens=3):
 # %% ---- 2023-08-28 ------------------------
 # Play ground
 if __name__ == "__main__":
+    # ----------------------------------------------------------
+    parser = argparse.ArgumentParser(description='Xorg simulation')
+    parser.add_argument(
+        '-d', '--display', metavar='int', type=int, default=13,
+        help='display port')
+
+    args = parser.parse_args()
+
+    # ----------------------------------------------------------
     assert platform.system() == 'Linux', 'Only Linux systems are supported'
 
     # ----------------------------------------------------------
     new_session('Command execution')
     command = shlex.split('lspci -mm -v')
+    # Call the command script and wait for the output
     output = subprocess.check_output(command).decode()
     print(command)
 
@@ -205,12 +217,26 @@ if __name__ == "__main__":
     # ----------------------------------------------------------
     new_session('Xorg simulation')
     try:
-        conf = generate_xorg_conf(doi_table)
-        path = 'xorg.conf'
+        command = generate_xorg_conf(doi_table)
+
+        xorg_search_path = '/etc/X11'
+        xorg_search_path = './'
+
+        display = args.display
+        print(f'Working with $DISPLAY=:{display}')
+        relative_path = f'custom-xorg-conf/tmpfile-{display}.conf'
+        path = Path(xorg_search_path, relative_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
         with open(path, 'w') as f:
-            f.write(conf)
+            f.write(command)
+
+        # The following command will startup the Xorg display
+        # command = shlex.split("Xorg -noreset +extension GLX +extension RANDR +extension RENDER -config %s :%s" % (relative_path, display))
+        # subprocess.call(command)
 
         input('Press enter to escape.')
+
     finally:
         # os.unlink(path)
         print(
